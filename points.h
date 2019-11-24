@@ -41,7 +41,7 @@ public:
 		return this->label;
 	}
 
-	void updateCoordinates(double x, double y) {
+	void setCoordinates(double x, double y) {
 		this->x = x;
 		this->y = y;
 	}
