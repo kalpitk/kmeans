@@ -4,9 +4,18 @@ using namespace std;
 
 #include "points.h"
 
-const int NUM = 6;
-const int K = 2;
-const int MAX_ITER = 6;
+const int NUM = 1000;
+const int K = 5;
+const int MAX_ITER = 100;
+
+Point* rand_gen(Point inp[],int num){
+	for(int i=0;i<num;i++){
+		double x = (rand()%25000)/100;
+		double y = (rand()%25000)/100;
+
+		inp[i].setCoordinates(x,y);
+	}
+}
 
 bool updateCenters(Point pts[], Point center[], int num, int k) {
 	double xAvg[k];
@@ -40,7 +49,7 @@ bool updateCenters(Point pts[], Point center[], int num, int k) {
 
 	for(int i=0;i<k;i++) {
 		changed |= (center[i].getCoordinates()==make_pair(xAvg[i], yAvg[i]));
-		center[i].updateCoordinates(xAvg[i], yAvg[i]);
+		center[i].setCoordinates(xAvg[i], yAvg[i]);
 	}
 
 	return changed;
@@ -74,7 +83,7 @@ void printCenters(Point center[], int k) {
 
 void writeToCSV(Point pts[], int num, string fileName) {
 	std::ofstream fout;
-	fout.open(fileName);
+	fout.open("./CSV/" + fileName);
 
 	fout<<"x,y,label\n";
 
@@ -92,30 +101,31 @@ void writeToCSV(Point pts[], int num, string fileName) {
 int main() {
 	srand(time(0));
 
-    Point pts[NUM] = {
+    Point pts[NUM];/* = {
     	Point(1.0, 2.0, -1),
     	Point(2.0, 2.0, -1),
     	Point(3.0, 2.0, -1),
     	Point(4.0, 2.0, -1),
     	Point(5.0, 2.0, -1),
     	Point(6.0, 2.0, -1)
-    };
+    };*/
 
+	rand_gen(pts,NUM);
     for(int initialPts=0;initialPts<4;initialPts++) {
     	Point center[K];
 
 	    initialise(pts, center, NUM, K);
 	    printCenters(center, K);
 
-//	    writeToCSV(center, K, "C" + to_string(initialPts) + "_0.csv");
-//	    writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_0.csv");
-
 	    for(int iter = 0; iter<MAX_ITER;iter++) {
-	    	if(updateCenters(pts, center, NUM, K) && iter) break;
-	    	printCenters(center, K);
-
 	    	writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
-	    	writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+	    	
+	    	if(updateCenters(pts, center, NUM, K) && iter) {
+	    		writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+	    		break;
+			}
+			writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+	    	printCenters(center, K);	    	
 	    }
     }
 
