@@ -74,7 +74,7 @@ void printCenters(Point center[], int k) {
 
 void writeToCSV(Point pts[], int num, string fileName) {
 	std::ofstream fout;
-	fout.open("./CSV/" + fileName);
+	fout.open(fileName);
 
 	fout<<"x,y,label\n";
 
@@ -107,11 +107,11 @@ int main() {
 	    initialise(pts, center, NUM, K);
 	    printCenters(center, K);
 
-	    writeToCSV(center, K, "C" + to_string(initialPts) + "_0.csv");
-	    writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_0.csv");
+//	    writeToCSV(center, K, "C" + to_string(initialPts) + "_0.csv");
+//	    writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_0.csv");
 
-	    for(int iter = 1; iter<MAX_ITER;iter++) {
-	    	if(updateCenters(pts, center, NUM, K)) break;
+	    for(int iter = 0; iter<MAX_ITER;iter++) {
+	    	if(updateCenters(pts, center, NUM, K) && iter) break;
 	    	printCenters(center, K);
 
 	    	writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
