@@ -67,15 +67,15 @@ void writeToCSV(Point pts[], int num, string fileName, bool writeLabel = false) 
 	std::ofstream fout;
 	fout.open("./CSV/" + fileName);
 
-	fout<<"\n";
+	fout<<"x,y,label\n";
 
 	for(int i=0;i<num;i++) {
 		double x, y;
 		tie(x, y) = pts[i].getCoordinates();
 		int label = pts[i].getLabel();
 
-		fout<<std::fixed<<x<<","<<y<<",";
-		if(writeLabel) fout<<label<<",";
+		fout<<std::fixed<<x<<","<<y;
+		if(writeLabel) fout<<","<<label;
 		fout<<"\n";
 	}
 
