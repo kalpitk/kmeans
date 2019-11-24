@@ -9,20 +9,20 @@ using namespace std;
 
 #include "points.h"
 
-const int NUM = 100000;
-const int K = 100;
+const int NUM = 100;
+const int K = 10;
 const int MAX_ITER = 100;
 
-void randPointGen(Point inp[],int num){
+void randPointGen(vector<Point> &pts,int num){
 	for(int i=0;i<num;i++){
 		double x = (rand()%25000)/100;
 		double y = (rand()%25000)/100;
 
-		inp[i].setCoordinates(x,y);
+		pts[i].setCoordinates(x,y);
 	}
 }
 
-void readPointsTxt(Point pts[], int num, string filePath) {
+void readPointsTxt(vector<Point> &pts, int num, string filePath) {
 	std::ifstream fin;
 	fin.open(filePath);
 
@@ -35,7 +35,7 @@ void readPointsTxt(Point pts[], int num, string filePath) {
 	fin.close();
 }
 
-void readPointsCSV(Point pts[], int num, string filePath) {
+void readPointsCSV(vector<Point> &pts, int num, string filePath) {
 	std::ifstream fin;
 	fin.open(filePath);
 
@@ -52,10 +52,135 @@ void readPointsCSV(Point pts[], int num, string filePath) {
 	fin.close();
 }
 
-bool updateCenters(Point pts[], Point center[], int num, int k) {
+double sumParallel(vector<Point> inp,double &sumX,double &sumY){
+	int num = inp.size();
+
+	if(num==0) {
+		sumX = 0;
+		sumY = 0;
+		return 0;
+	}
+	sumX = 0;
+		sumY = 0;
+	for(int i=0;i<num;i++) {
+		sumX += inp[i].x;
+		sumY += inp[i].y;
+	}
+	return 0;
+
+	int numBatches = 1<<((int)log2(num));
+	/*make Batches*/
+	mytime st = high_resolution_clock::now();
+
+	#pragma omp parallel for
+	for(int i=numBatches;i<num;i++) {
+		inp[i%numBatches].x += inp[i].x;
+		inp[i%numBatches].y += inp[i].y;
+	}
+
+	for(int i=0;i<numBatches;i++) {
+		sumX += inp[i].x;
+		sumY += inp[i].y;
+		return 0;
+	}
+
+	/*set is power of two*/
+	int n =numBatches;
+	while(n){
+		n>>=1;
+		// #pragma omp parallel for
+		for(int i=0;i<n;i++){
+			inp[i].x += inp[i+n].x;
+			inp[i].y += inp[i+n].y;
+		}
+	}
+	sumX = inp[0].x;
+	sumY = inp[0].y;
+	
+	mytime end = high_resolution_clock::now();
+	duration<double> time_span = duration_cast<duration<double>>(end - st);
+	return time_span.count();	
+}
+
+double listPacking(vector<Point> pts, double &sumX, double &sumY, int label) {
+	double tm = 0;
+	double sz=0;
+
+	int n = pts.size();
+	vector<int> val(n+1, 0);
+	vector<int> next(n);
+
+	for(int i=0;i<n;i++) {
+		val[i] = (pts[i].getLabel()==label);
+	}
+	
+	#pragma omp parallel for
+	for(int i=0;i<n;i++) next[i] = i+1;
+	next[n-1] = -1;
+
+	int h = log2(n) + 1;
+
+	// Time Start
+	mytime st = high_resolution_clock::now();
+	
+	for(;h;h--){
+		#pragma omp parallel for
+		for(int i=0;i<n;i++) {
+			//#pragma omp critical
+			if(next[i]!=-1){
+				val[i] += val[next[i]];
+				next[i] = next[next[i]];
+			}
+		}
+	}
+
+	mytime end = high_resolution_clock::now();
+	duration<double> time_span = duration_cast<duration<double>>(end - st);
+	tm += time_span.count();
+
+	sz = val[0];
+
+	vector<Point> labelVals(sz,Point(0,0,0));
+
+	st = high_resolution_clock::now();
+
+	#pragma omp parallel for
+	for(int i=0;i<n-1;i++) {
+		if(val[i]>val[i+1]) {
+			labelVals[val[i]-1] = pts[i];
+			sz--;
+		}
+	}
+	if(val[n-1]==1) {labelVals[0] = pts[n-1];sz--;}
+	// assert(sz==0);
+
+	// return 0;
+
+	end = high_resolution_clock::now();
+	time_span = duration_cast<duration<double>>(end - st);
+	tm += time_span.count();
+
+	tm += sumParallel(labelVals, sumX, sumY);
+
+	// assert(labelVals1==labelVals);
+
+	// if(sz==0) {
+	// 	sumX = sumY = 1e+18;
+	// 	return tm;
+	// }
+
+	// sumX /= sz*1.0;
+	// sumY /= sz*1.0;
+
+	return tm;
+}
+
+bool updateCenters(vector<Point> &pts, vector<Point> &center, int num, int k) {
 	vector<double> xAvg(k, 0);
 	vector<double> yAvg(k, 0);
 	vector<double> cnt(k, 0);
+
+	for(int i=0;i<k;i++) listPacking(pts,xAvg[i],yAvg[i],i);
 
 	#pragma omp parallel for
 	for(int i=0;i<num;i++) {
@@ -63,8 +188,8 @@ bool updateCenters(Point pts[], Point center[], int num, int k) {
 		tie(x,y) = pts[i].getCoordinates();
 		int label = pts[i].getLabel();
 
-		xAvg[label] += x;
-		yAvg[label] += y;
+		// xAvg[label] += x;
+		// yAvg[label] += y;
 		cnt[label]++;
 	}
 
@@ -76,6 +201,8 @@ bool updateCenters(Point pts[], Point center[], int num, int k) {
 	bool changed = false;
 
 	for(int i=0;i<k;i++) {
+		if(xAvg[i]==1e+18&&yAvg[i]==1e+18) continue;
+
 		changed |= (center[i].getCoordinates()==make_pair(xAvg[i], yAvg[i]));
 		center[i].setCoordinates(xAvg[i], yAvg[i]);
 	}
@@ -83,7 +210,7 @@ bool updateCenters(Point pts[], Point center[], int num, int k) {
 	return changed;
 }
 
-void initialise(Point pts[], Point center[], int num, int k) {
+void initialise(vector<Point> &pts, vector<Point> &center, int num, int k) {
 	bool selected[num] = {};
 	int totalSelected = 0;
 
@@ -100,7 +227,7 @@ void initialise(Point pts[], Point center[], int num, int k) {
 	}
 }
 
-void printCenters(Point center[], int k) {
+void printCenters(vector<Point> &center, int k) {
 	cout<<"------------\n";
 	for(int i=0;i<k;i++) {
 		double x, y;
@@ -109,7 +236,7 @@ void printCenters(Point center[], int k) {
 	}
 }
 
-void writeToCSV(Point pts[], int num, string fileName) {
+void writeToCSV(vector<Point> &pts, int num, string fileName) {
 	std::ofstream fout;
 	fout.open("./CSV/" + fileName);
 
@@ -129,16 +256,16 @@ void writeToCSV(Point pts[], int num, string fileName) {
 int main() {
 	srand(time(0));
 
-    Point pts[NUM];
+    vector<Point> pts(NUM);
 
-	// randPointGen(pts,NUM);
-	readPointsTxt(pts, NUM, "./Dataset/birch100k.txt");
+	randPointGen(pts,NUM);
+	// readPointsTxt(pts, NUM, "./Dataset/birch100k.txt");
 	// readPointsCSV(pts, NUM, "./Dataset/kg.csv");
 
 	mytime st = high_resolution_clock::now();
 
     for(int initialPts=0;initialPts<40;initialPts++) {
-    	Point center[K];
+    	vector<Point> center(K);
 
 	    initialise(pts, center, NUM, K);
 	    // printCenters(center, K);
@@ -150,8 +277,8 @@ int main() {
 				pts[i].updateLabel(center, K);
 			}
 
-			// writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
-			// writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+			writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+			writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
 	    	
 	    	if(updateCenters(pts, center, NUM, K) && iter) {
 	    		// cout<<"$"<<iter<<endl;

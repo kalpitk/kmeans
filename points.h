@@ -1,9 +1,9 @@
 class Point
 {
+public:
 	double x, y;
 	int label;
 
-public:
 	Point(){}
 	Point(double x, double y, int label) {
 		this->x = x;
@@ -19,6 +19,18 @@ public:
 
 	double distance(Point pt) {
 		return this->distance(pt.x, pt.y);
+	}
+
+	void updateLabel(vector<Point> &center, int k) {
+		double min = 1e+18;
+
+		for(int i=0;i<k;i++) {
+			double dist = this->distance(center[i]);
+			if(dist<min) {
+				min = dist;
+				this->label = i;
+			}
+		}
 	}
 
 	void updateLabel(Point center[], int k) {

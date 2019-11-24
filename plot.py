@@ -14,10 +14,10 @@ def path_exist(turn,iter):
     except IOError:
         return False
 
-turn = sys.argv[1]
+turn = 0
 while path_exist(turn,0):
     print("Turn : "+str(turn))
-    iter=argv[2]
+    iter=0
     while path_exist(turn,iter):
         plt.cla()
         
@@ -34,7 +34,7 @@ while path_exist(turn,0):
         #print(centres_labels)
 
         for point in points_labels:
-            plt.scatter(point[0],point[1], color = colors[int(point[2])-1], marker='o', s=50)
+            plt.scatter(point[0],point[1], color = colors[(int(point[2])-1)%8], marker='o', s=50)
         
         for index,centre in enumerate(centres_labels):
             plt.scatter(centre[0],centre[1], color='#000000' , marker='x', s=100)
