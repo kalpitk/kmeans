@@ -1,14 +1,19 @@
 #include <bits/stdc++.h>
 #include <fstream>
+
+#include <chrono>
+using namespace std::chrono;
+typedef high_resolution_clock::time_point mytime;
+
 using namespace std;
 
 #include "points.h"
 
-const int NUM = 1000;
-const int K = 5;
+const int NUM = 100000;
+const int K = 100;
 const int MAX_ITER = 100;
 
-Point* rand_gen(Point inp[],int num){
+void randPointGen(Point inp[],int num){
 	for(int i=0;i<num;i++){
 		double x = (rand()%25000)/100;
 		double y = (rand()%25000)/100;
@@ -17,19 +22,42 @@ Point* rand_gen(Point inp[],int num){
 	}
 }
 
-bool updateCenters(Point pts[], Point center[], int num, int k) {
-	double xAvg[k];
-	double yAvg[k];
-	double cnt[k];
-
-	memset(xAvg, 0, k);
-	memset(yAvg, 0, k);
-	memset(cnt, 0, k);
+void readPointsTxt(Point pts[], int num, string filePath) {
+	std::ifstream fin;
+	fin.open(filePath);
 
 	for(int i=0;i<num;i++) {
-		pts[i].updateLabel(center, k);
+		int x, y;
+		fin>>x>>y;
+		pts[i].setCoordinates(x,y);
 	}
 
+	fin.close();
+}
+
+void readPointsCSV(Point pts[], int num, string filePath) {
+	std::ifstream fin;
+	fin.open(filePath);
+
+	string junk;
+	getline(fin, junk);
+
+	for(int i=0;i<num;i++) {
+		double x, y;
+		char ch;
+		fin>>x>>ch>>y;
+		pts[i].setCoordinates(x,y);
+	}
+
+	fin.close();
+}
+
+bool updateCenters(Point pts[], Point center[], int num, int k) {
+	vector<double> xAvg(k, 0);
+	vector<double> yAvg(k, 0);
+	vector<double> cnt(k, 0);
+
+	#pragma omp parallel for
 	for(int i=0;i<num;i++) {
 		double x, y;
 		tie(x,y) = pts[i].getCoordinates();
@@ -101,33 +129,42 @@ void writeToCSV(Point pts[], int num, string fileName) {
 int main() {
 	srand(time(0));
 
-    Point pts[NUM];/* = {
-    	Point(1.0, 2.0, -1),
-    	Point(2.0, 2.0, -1),
-    	Point(3.0, 2.0, -1),
-    	Point(4.0, 2.0, -1),
-    	Point(5.0, 2.0, -1),
-    	Point(6.0, 2.0, -1)
-    };*/
+    Point pts[NUM];
 
-	rand_gen(pts,NUM);
-    for(int initialPts=0;initialPts<4;initialPts++) {
+	// randPointGen(pts,NUM);
+	readPointsTxt(pts, NUM, "./Dataset/birch100k.txt");
+	// readPointsCSV(pts, NUM, "./Dataset/kg.csv");
+
+	mytime st = high_resolution_clock::now();
+
+    for(int initialPts=0;initialPts<40;initialPts++) {
     	Point center[K];
 
 	    initialise(pts, center, NUM, K);
-	    printCenters(center, K);
+	    // printCenters(center, K);
 
 	    for(int iter = 0; iter<MAX_ITER;iter++) {
-	    	writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+
+	    	#pragma omp parallel for
+	    	for(int i=0;i<NUM;i++) {
+				pts[i].updateLabel(center, K);
+			}
+
+			// writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+			// writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
 	    	
 	    	if(updateCenters(pts, center, NUM, K) && iter) {
-	    		writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+	    		// cout<<"$"<<iter<<endl;
 	    		break;
-			}
-			writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
-	    	printCenters(center, K);	    	
+	    	}
+	    	// printCenters(center, K);
 	    }
     }
+
+    mytime end = high_resolution_clock::now();
+	duration<double> time_span = duration_cast<duration<double>>(end - st);
+
+	cout<<time_span.count();
 
     return 0;
 }
