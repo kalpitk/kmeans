@@ -33,6 +33,10 @@ public:
 		}
 	}
 
+	void setLabel(int label) {
+		this->label = label;
+	}
+
 	int getLabel() {
 		return this->label;
 	}

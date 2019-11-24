@@ -48,7 +48,10 @@ void initialise(Point pts[], Point center[], int num, int k) {
 		int index = rand()%num;
 		if(!selected[index]) {
 			selected[index] = true;
+
 			center[totalSelected] = pts[index];
+			center[totalSelected].setLabel(totalSelected);
+
 			totalSelected++;
 		}
 	}
@@ -59,11 +62,11 @@ void printCenters(Point center[], int k) {
 	for(int i=0;i<k;i++) {
 		double x, y;
 		tie(x, y) = center[i].getCoordinates();
-		cout<<std::fixed<<x<<" "<<y<<endl;
+		cout<<std::fixed<<x<<" "<<y<<" "<<center[i].getLabel()<<endl;
 	}
 }
 
-void writeToCSV(Point pts[], int num, string fileName, bool writeLabel = false) {
+void writeToCSV(Point pts[], int num, string fileName) {
 	std::ofstream fout;
 	fout.open("./CSV/" + fileName);
 
@@ -74,9 +77,7 @@ void writeToCSV(Point pts[], int num, string fileName, bool writeLabel = false) 
 		tie(x, y) = pts[i].getCoordinates();
 		int label = pts[i].getLabel();
 
-		fout<<std::fixed<<x<<","<<y;
-		if(writeLabel) fout<<","<<label;
-		fout<<"\n";
+		fout<<std::fixed<<x<<","<<y<<","<<label<<"\n";
 	}
 
 	fout.close();
@@ -94,20 +95,22 @@ int main() {
     	Point(6.0, 2.0, -1)
     };
 
-    Point center[K];
+    for(int initialPts=0;initialPts<2;initialPts++) {
+    	Point center[K];
 
-    initialise(pts, center, NUM, K);
-    printCenters(center, K);
+	    initialise(pts, center, NUM, K);
+	    printCenters(center, K);
 
-    writeToCSV(center, K, "C0.csv");
-    writeToCSV(pts, NUM, "P0.csv", true);
+	    writeToCSV(center, K, "C" + to_string(initialPts) + "_0.csv");
+	    writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_0.csv");
 
-    for(int iter = 0; iter<5;iter++) {
-    	updateCenters(pts, center, NUM, K);
-    	printCenters(center, K);
+	    for(int iter = 0; iter<5;iter++) {
+	    	updateCenters(pts, center, NUM, K);
+	    	printCenters(center, K);
 
-    	writeToCSV(center, K, "C"+to_string(iter)+".csv");
-    	writeToCSV(pts, NUM, "P"+to_string(iter)+".csv", true);
+	    	writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+	    	writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+	    }
     }
 
     return 0;
