@@ -24,6 +24,7 @@ public:
 	void updateLabel(vector<Point> &center, int k) {
 		double min = 1e+18;
 
+		# pragma omp parallel for
 		for(int i=0;i<k;i++) {
 			double dist = this->distance(center[i]);
 			if(dist<min) {
@@ -33,9 +34,27 @@ public:
 		}
 	}
 
+	void updateLabelParallel(vector<Point> &center, int k) {
+		vector<Point> arr = center;
+		for(int i=0;i<k;i++) arr[i].label = i;
+
+		int h = log2(k) + 2;
+		for(;h;h--) {
+			k >>= 1;
+			# pragma omp parallel for
+			for(int i=0;i<k;i++) {
+				if(this->distance(arr[i]) > this->distance(arr[i+k]))
+					arr[i] = arr[i+k];
+			}
+		}
+
+		this->label = arr[0].label;
+	}
+
 	void updateLabel(Point center[], int k) {
 		double min = 1e+18;
 
+		# pragma omp parallel for
 		for(int i=0;i<k;i++) {
 			double dist = this->distance(center[i]);
 			if(dist<min) {

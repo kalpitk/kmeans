@@ -39,6 +39,7 @@ while path_exist(turn,0):
         for index,centre in enumerate(centres_labels):
             plt.scatter(centre[0],centre[1], color='#000000' , marker='x', s=100)
 
+        # plt.show()
         plt.draw()
         plt.pause(0.1)
 
@@ -46,4 +47,3 @@ while path_exist(turn,0):
 
     plt.pause(3)
     turn = turn+1        
-    
