@@ -1,3 +1,5 @@
+CSV/
+Dataset/
+
 *.cpp:tests
 *.out
-CSV/*.csv

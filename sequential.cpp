@@ -1,15 +1,21 @@
+/*
+ * Author : Kalpit Kothari, Arjit Arora
+ *
+ * CS 359 Parallel Computing Project
+ */
+
 #include <bits/stdc++.h>
-#include <fstream>
 
 #include <chrono>
 using namespace std::chrono;
-typedef high_resolution_clock::time_point mytime;
+typedef high_resolution_clock::time_point Timer;
 
 using namespace std;
 
 #include "points.h"
+#include "readwrite.h"
 
-const int NUM = 100;
+const int NUM = 10000;
 const int K = 4;
 const int MAX_ITER = 100;
 
@@ -29,36 +35,6 @@ void randPointGen(vector<Point> &pts,int num){
 	}
 }
 
-void readPointsTxt(vector<Point> &pts, int num, string filePath) {
-	std::ifstream fin;
-	fin.open(filePath);
-
-	for(int i=0;i<num;i++) {
-		int x, y;
-		fin>>x>>y;
-		pts[i].setCoordinates(x,y);
-	}
-
-	fin.close();
-}
-
-void readPointsCSV(vector<Point> &pts, int num, string filePath) {
-	std::ifstream fin;
-	fin.open(filePath);
-
-	string junk;
-	getline(fin, junk);
-
-	for(int i=0;i<num;i++) {
-		double x, y;
-		char ch;
-		fin>>x>>ch>>y;
-		pts[i].setCoordinates(x,y);
-	}
-
-	fin.close();
-}
-
 void printCenters(vector<Point> &center, int k) {
 	cout<<"Center List:\n";
 	for(int i=0;i<k;i++) {
@@ -69,26 +45,11 @@ void printCenters(vector<Point> &center, int k) {
 	}
 }
 
-void writeToCSV(vector<Point> &pts, int num, string fileName) {
-	std::ofstream fout;
-	fout.open("./CSV/" + fileName);
-
-	fout<<"x,y,label\n";
-
-	for(int i=0;i<num;i++) {
-		double x, y;
-		x = pts[i].x;
-		y = pts[i].y;
-		int label = pts[i].label;
-
-		fout<<std::fixed<<x<<","<<y<<","<<label<<"\n";
-	}
-
-	fout.close();
-}
-
+/*
+ * Update centers to mean of points with corresponding label
+ */
 bool updateCenters(vector<Point> &pts, vector<Point> &center, int num, int k) {
-	mytime st, end;
+	Timer st, end;
 	st = high_resolution_clock::now();
 
 	vector<double> xAvg(k, 0);
@@ -123,23 +84,19 @@ bool updateCenters(vector<Point> &pts, vector<Point> &center, int num, int k) {
 	return changed;
 }
 
-void initialise(vector<Point> &pts, vector<Point> &center, int num, int k) {
-	mytime st, end;
+/*
+ * Initialize with random centers
+ * Ensure no point is picked by two centers
+ */
+inline void initialise(vector<Point> &pts, vector<Point> &center, int num, int k) {
+	bool selected[num] = {};
+
+	Timer st, end;
 	st = high_resolution_clock::now();
 
-	bool selected[num] = {};
-	int totalSelected = 0;
-
-	while(totalSelected<k) {
+	for(int i=0;i<k;i++) {
 		int index = rand()%num;
-		if(!selected[index]) {
-			selected[index] = true;
-
-			center[totalSelected] = pts[index];
-			center[totalSelected].setLabel(totalSelected);
-
-			totalSelected++;
-		}
+		center[i] = pts[index];
 	}
 
 	end = high_resolution_clock::now();
@@ -155,15 +112,16 @@ int main() {
 	// readPointsTxt(pts, NUM, "./Dataset/birch100k.txt");
 	// readPointsCSV(pts, NUM, "./Dataset/kg.csv");
 
+	int iterCount = 0;
+
     for(int initialPts=0;initialPts<5;initialPts++) {
     	vector<Point> center(K);
 
 	    initialise(pts, center, NUM, K);
-	    // printCenters(center, K);
 
 	    for(int iter = 0; iter<MAX_ITER;iter++) {
 
-	    	mytime st, end;
+	    	Timer st, end;
 	    	st = high_resolution_clock::now();
 
 	    	for(int i=0;i<NUM;i++) {
@@ -176,14 +134,13 @@ int main() {
 			writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
 			writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
 	    	
+			iterCount++;
 	    	if(updateCenters(pts, center, NUM, K) && iter) break;
-	    	
-	    	// printCenters(center, K);
 	    }
     }
 
 	cout<<"\nSequential Algorithm\n";
-	cout<<"Time taken : "<<totalTime<<endl;
+	cout<<"Average Time/Iteration : "<<totalTime/iterCount<<endl;
 
     return 0;
 }

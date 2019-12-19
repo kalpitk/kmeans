@@ -1,20 +1,30 @@
+/*
+ * Author : Kalpit Kothari, Arjit Arora
+ *
+ * CS 359 Parallel Computing Project
+ */
+
 #include <bits/stdc++.h>
-#include <fstream>
 
 #include <chrono>
 using namespace std::chrono;
-typedef high_resolution_clock::time_point mytime;
+typedef high_resolution_clock::time_point Timer;
 
 using namespace std;
 
 #include "points.h"
+#include "readwrite.h"
 
-const int NUM = 100;
+const int NUM = 10000;
 const int K = 4;
 const int MAX_ITER = 100;
 
 double totalTime = 0;
 
+/*
+ * Generate random points with
+ * approximately 4 clusters
+ */
 void randPointGen(vector<Point> &pts,int num){
 	for(int i=0;i<num;i++){
 		double x = (rand()%250000)/1000;
@@ -29,36 +39,6 @@ void randPointGen(vector<Point> &pts,int num){
 	}
 }
 
-void readPointsTxt(vector<Point> &pts, int num, string filePath) {
-	std::ifstream fin;
-	fin.open(filePath);
-
-	for(int i=0;i<num;i++) {
-		int x, y;
-		fin>>x>>y;
-		pts[i].setCoordinates(x,y);
-	}
-
-	fin.close();
-}
-
-void readPointsCSV(vector<Point> &pts, int num, string filePath) {
-	std::ifstream fin;
-	fin.open(filePath);
-
-	string junk;
-	getline(fin, junk);
-
-	for(int i=0;i<num;i++) {
-		double x, y;
-		char ch;
-		fin>>x>>ch>>y;
-		pts[i].setCoordinates(x,y);
-	}
-
-	fin.close();
-}
-
 void printCenters(vector<Point> &center, int k) {
 	cout<<"Center List:\n";
 	for(int i=0;i<k;i++) {
@@ -69,24 +49,11 @@ void printCenters(vector<Point> &center, int k) {
 	}
 }
 
-void writeToCSV(vector<Point> &pts, int num, string fileName) {
-	std::ofstream fout;
-	fout.open("./CSV/" + fileName);
-
-	fout<<"x,y,label\n";
-
-	for(int i=0;i<num;i++) {
-		double x, y;
-		x = pts[i].x;
-		y = pts[i].y;
-		int label = pts[i].label;
-
-		fout<<std::fixed<<x<<","<<y<<","<<label<<"\n";
-	}
-
-	fout.close();
-}
-
+/*
+ * Computes Sum in Parallel
+ * Time Complexity - O(logn)
+ * Work, Cost - O(n)
+ */
 void sumParallel(vector<Point> &inp,double &sumX,double &sumY){
 	int num = inp.size();
 
@@ -98,7 +65,7 @@ void sumParallel(vector<Point> &inp,double &sumX,double &sumY){
 
 	/* make Batches */
 	int numBatches = 1<<((int)log2(num/(log2(num))));
-	mytime st = high_resolution_clock::now();
+	Timer st = high_resolution_clock::now();
 
 	#pragma omp parallel for
 	for(int i=0;i<numBatches;i++){
@@ -122,10 +89,16 @@ void sumParallel(vector<Point> &inp,double &sumX,double &sumY){
 	sumX = inp[0].x;
 	sumY = inp[0].y;
 	
-	mytime end = high_resolution_clock::now();
+	Timer end = high_resolution_clock::now();
 	totalTime += duration_cast<duration<double>>(end - st).count();
 }
 
+/*
+ * For each label, creates a list of Points
+ * which need to be summed up to find mean
+ * Time Complexity - O(logn)
+ * Work, Cost - O(nlogn)
+ */
 void listPacking(vector<Point> &pts, double &sumX, double &sumY, int label) {
 	double time1 = 0;
 	double sz=0;
@@ -146,7 +119,7 @@ void listPacking(vector<Point> &pts, double &sumX, double &sumY, int label) {
 
 	int h = log2(n) + 1;
 
-	mytime st, end;
+	Timer st, end;
 
 	for(;h;h--){
 		vector<int> nextOld = next;
@@ -196,24 +169,25 @@ void listPacking(vector<Point> &pts, double &sumX, double &sumY, int label) {
 	return;
 }
 
+/*
+ * Update centers to mean of points with corresponding label
+ */
 inline bool updateCenters(vector<Point> &pts, vector<Point> &center, int num, int k) {
 	vector<double> xAvg(k, 0);
 	vector<double> yAvg(k, 0);
-	vector<double> cnt(k, 0);
 
-	// #pragma omp parallel for shared(pts)
 	for(int i=0;i<k;i++) {
 		listPacking(pts,xAvg[i],yAvg[i],i);
 	}
 
 	bool changed = false;
 
-	mytime st, end;
+	Timer st, end;
 	st = high_resolution_clock::now();
 
-	// #pragma omp parallel for
+	#pragma omp parallel for
 	for(int i=0;i<k;i++) {
-		if(xAvg[i]==1e+18&&yAvg[i]==1e+18) continue;
+		if(xAvg[i]==1e+18 && yAvg[i]==1e+18) continue;
 
 		changed |= (center[i].getCoordinates()==make_pair(xAvg[i], yAvg[i]));
 		center[i].setCoordinates(xAvg[i], yAvg[i]);
@@ -225,10 +199,13 @@ inline bool updateCenters(vector<Point> &pts, vector<Point> &center, int num, in
 	return changed;
 }
 
+/*
+ * Initialize with random centers
+ */
 inline void initialise(vector<Point> &pts, vector<Point> &center, int num, int k) {
 	bool selected[num] = {};
 
-	mytime st, end;
+	Timer st, end;
 	st = high_resolution_clock::now();
 
 	for(int i=0;i<k;i++) {
@@ -245,15 +222,16 @@ int main() {
 
     vector<Point> pts(NUM);
 
-	randPointGen(pts,NUM);
+	randPointGen(pts, NUM);
 	// readPointsTxt(pts, NUM, "./Dataset/birch100k.txt");
 	// readPointsCSV(pts, NUM, "./Dataset/kg.csv");
+
+	int iterCount = 0;
 
     for(int initialPts=0;initialPts<40;initialPts++) {
     	vector<Point> center(K);
 
 	    initialise(pts, center, NUM, K);
-	    // printCenters(center, K);
 
 	    for(int iter = 0; iter<MAX_ITER;iter++) {
 
@@ -262,17 +240,16 @@ int main() {
 				pts[i].updateLabelParallel(center, K);
 			}
 
-			writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter)+".csv");
-			writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter)+".csv");
+			writeToCSV(center, K, "C" + to_string(initialPts) + "_" + to_string(iter) + ".csv");
+			writeToCSV(pts, NUM, "P" + to_string(initialPts) + "_" + to_string(iter) + ".csv");
 	    	
+			iterCount++;
 	    	if(updateCenters(pts, center, NUM, K) && iter) break;
-	    	
-	    	// printCenters(center, K);
 	    }
     }
 
     cout<<"Parallel Algorithm\n";
-	cout<<"Time taken : "<<totalTime<<endl;
+	cout<<"Average Time/Iteration : "<<totalTime/iterCount<<endl;
 
     return 0;
 }

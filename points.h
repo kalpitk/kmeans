@@ -1,3 +1,15 @@
+/*
+ * Author : Kalpit Kothari, Arjit Arora
+ *
+ * CS 359 Parallel Computing Project
+ */
+
+
+/*
+ * Point in cartesian plane
+ * (x, y) - Coordinates
+ * label - corresponding center
+ */
 class Point
 {
 public:
@@ -54,7 +66,6 @@ public:
 	void updateLabel(Point center[], int k) {
 		double min = 1e+18;
 
-		# pragma omp parallel for
 		for(int i=0;i<k;i++) {
 			double dist = this->distance(center[i]);
 			if(dist<min) {
